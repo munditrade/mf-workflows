@@ -1,0 +1,112 @@
+name: Reusable multi branch workflow
+
+on:
+  workflow_call:
+    secrets:
+      VAULT_ADDR:
+        required: true
+      VAULT_TOKEN:
+        required: true
+      ORG_GOOGLE_CREDENTIALS:
+        required: true
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  cdn-upload:
+    name: Upload artifacts to mundi cdn
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Vault Cli
+        uses: innovationnorway/setup-vault@v1
+        with:
+          version: '~1.9.2'
+
+      - name: Import DEVOPS Secrets
+        uses: hashicorp/vault-action@v2.3.1
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          token: ${{ secrets.VAULTTOKEN }}
+          method: token
+          secrets: |
+            devops-customer-platform/dev DEVOPS_ENV;
+            devops-customer-platform/dev DEVOPS_ENV_DOMAIN;
+            devops-customer-platform/dev DEVOPS_FRONTEND_BUCKET;
+            devops-customer-platform/dev DEVOPS_FRONTEND_BUCKET_CUSTOMER;
+            devops-customer-platform/dev DEVOPS_FRONTEND_BUCKET_MF;
+
+      - name: Prepare Env Variables
+        shell: bash
+        run: |
+          echo "" >> .env
+          cat .env >> $GITHUB_ENV
+
+          VERSION=${{ env.PROJECT_ID }}-${{ github.event.number }}
+          BUCKET_PATH_INDEX=$VERSION.customer-root-config.$DEVOPS_ENV_DOMAIN/
+
+          echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - uses: google-github-actions/setup-gcloud@master
+        if: ${{ success() }}
+        with:
+          project_id: munditrade
+          service_account_key: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
+          export_default_credentials: true
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: mf-build
+          path: dist
+
+      - name: upload bundles to cdn
+        if: ${{ success() }}
+        run: |
+          gsutil -m rsync -r dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ env.VERSION }}
+
+      - name: create multi branch environment
+        if: ${{ success() }}
+        run: |
+          curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o ./jq
+          chmod a+x ./jq
+
+          # Download the import map
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/importmap.json live.importmap || echo '{"imports": {}}' > live.importmap
+
+          echo "Import Map before deployment:"
+          cat ./live.importmap
+
+          newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/mundi-${{ env.PROJECT_NAME }}.js
+
+          # Modify the import map
+          cat ./live.importmap | ./jq --arg newUrl "$newUrl" '.imports["@mundi/${{ env.PROJECT_NAME }}"] = $newUrl' > importmap.json
+
+          echo "Import Map after deployment"
+          cat importmap.json
+
+          # Upload new importmap
+          gsutil -m -h "Content-Type:application/importmap+json" -h "Cache-Control:public, must-revalidate, max-age=10" cp importmap.json gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ env.VERSION }}/
+
+          # Prepare index.html
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/customer-root-config/index.html index.html
+
+          # Override importmap source
+          echo "Replacing importmap source in index.html"
+          sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/importmap.json#g index.html
+
+          echo "After replace"
+          cat index.html | grep importmap.json
+
+          # Upload the index.html
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/${{ env.BUCKET_PATH_INDEX }}/
+
+      - name: Comment PR
+        if: ${{ success() }}
+        uses: thollander/actions-comment-pull-request@1.0.2
+        with:
+          message: |
+            PUBLIC_URL: https://${{ env.VERSION }}.customer.${{ env.DEVOPS_ENV_DOMAIN }}
+            ASSETS_URL: https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
