@@ -1,0 +1,43 @@
+name: Reusable sentry releases workflow 
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      PROJECT_NAME:
+        required: true
+        type: string
+    secrets:
+      SENTRY_AUTH_TOKEN:
+        required: true
+      SENTRY_ORG:
+        required: true
+      SENTRY_PROJECT:
+        required: true
+
+jobs:
+  sentry_release:
+    name: Build project artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Prepare Env Variables
+        run: |
+          VERSION=$(git rev-parse --short HEAD)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: ${{ inputs.environment }}
+          sourcemaps: './dist'
+          ignore_empty: true
+          version: ${{ env.VERSION }}
+          version_prefix: 'v'
