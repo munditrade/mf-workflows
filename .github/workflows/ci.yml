@@ -2,13 +2,16 @@ name: Reusable CI workflow
 
 on:
   workflow_call:
+    inputs:
+      VAULT_KV_PATH:
+        required: true
+        type: string
     secrets:
       VAULT_ADDR:
         required: true
       VAULT_TOKEN:
         required: true
-      VAULT_KV_PATH:
-        required: true
+      
 
 jobs:
   create-artifacts:
@@ -26,7 +29,7 @@ jobs:
         env:
           VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
-        run: "vault kv get -format yaml -field=data ${{ secrets.VAULT_KV_PATH }}| sed 's/: /=/' > .env"
+        run: "vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}| sed 's/: /=/' > .env"
 
       - uses: actions/setup-node@v2
         with:

@@ -1,7 +1,14 @@
-name: Reusable multi branch workflow
+name: Reusable multi branch CD workflow
 
 on:
   workflow_call:
+    inputs:
+      PROJECT_ID:
+        required: true
+        type: string
+      PROJECT_NAME:
+        required: true
+        type: string
     secrets:
       VAULT_ADDR:
         required: true
@@ -41,13 +48,13 @@ jobs:
           echo "" >> .env
           cat .env >> $GITHUB_ENV
 
-          VERSION=${{ env.PROJECT_ID }}-${{ github.event.number }}
+          VERSION=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
           BUCKET_PATH_INDEX=$VERSION.customer-root-config.$DEVOPS_ENV_DOMAIN/
 
           echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - uses: google-github-actions/setup-gcloud@master
+      - uses: google-github-actions/setup-gcloud@v0
         if: ${{ success() }}
         with:
           project_id: munditrade
@@ -76,10 +83,10 @@ jobs:
           echo "Import Map before deployment:"
           cat ./live.importmap
 
-          newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/mundi-${{ env.PROJECT_NAME }}.js
+          newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/mundi-${{ inputs.PROJECT_NAME }}.js
 
           # Modify the import map
-          cat ./live.importmap | ./jq --arg newUrl "$newUrl" '.imports["@mundi/${{ env.PROJECT_NAME }}"] = $newUrl' > importmap.json
+          cat ./live.importmap | ./jq --arg newUrl "$newUrl" '.imports["@mundi/${{ inputs.PROJECT_NAME }}"] = $newUrl' > importmap.json
 
           echo "Import Map after deployment"
           cat importmap.json
