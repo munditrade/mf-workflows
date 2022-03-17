@@ -1,0 +1,59 @@
+name: Reusable semantic release workflow
+
+on:
+  workflow_call:
+    inputs:
+      VAULT_KV_PATH:
+        required: true
+        type: string
+    secrets:
+      VAULT_ADDR:
+        required: true
+      VAULT_TOKEN:
+        required: true
+
+jobs:
+  semantic_release:
+    name: Create new semantic release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.2.0
+
+      - name: Setup Vault Cli
+        uses: innovationnorway/setup-vault@v1
+        with:
+          version: '~1.9.2'
+
+      - name: Vault Secrets to env
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+        run: "vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}| sed 's/: /=/' > .env"
+
+      - name: Prepare Env Variables
+        run: |
+          echo "" >> .env
+          cat .env >> $GITHUB_ENV
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 14.x
+
+      - name: Cache node modules
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - run: npm ci --omit=dev --ignore-scripts
+
+      - name: Create new release
+        run: npx semantic-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

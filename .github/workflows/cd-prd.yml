@@ -1,0 +1,64 @@
+name: Reusable multi branch CD workflow (PRD)
+
+on:
+  workflow_call:
+    inputs:
+      PROJECT_NAME:
+        required: true
+        type: string
+    secrets:
+      VAULT_ADDR:
+        required: true
+      VAULT_TOKEN:
+        required: true
+      ORG_GOOGLE_CREDENTIALS:
+        required: true
+
+jobs:
+  cdn-upload:
+    name: Upload artifacts to mundi cdn
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Import DEVOPS Secrets
+        uses: hashicorp/vault-action@v2.3.1
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          token: ${{ secrets.VAULT_TOKEN }}
+          method: token
+          secrets: |
+            devops-customer-platform/prd DEVOPS_ENV;
+            devops-customer-platform/prd DEVOPS_ENV_DOMAIN;
+            devops-customer-platform/prd DEVOPS_FRONTEND_BUCKET;
+            devops-customer-platform/prd DEVOPS_FRONTEND_BUCKET_CUSTOMER;
+            devops-customer-platform/prd DEVOPS_FRONTEND_BUCKET_MF;
+            devops-customer-platform/prd IMPORT_MAP_DEPLOYER_URL;
+
+      - name: Prepare Env Variables
+        run: |
+          VERSION=$(git rev-parse --short HEAD)
+          BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
+          echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
+
+      - uses: google-github-actions/setup-gcloud@master
+        if: ${{ success() }}
+        with:
+          project_id: munditrade
+          service_account_key: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
+          export_default_credentials: true
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: mf-build
+          path: dist
+
+      - name: Upload bundle
+        if: ${{ success() }}
+        run: |
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -r dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
+
+      - name: Update import-map
+        if: ${{ success() }}
+        run: |
+          curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"

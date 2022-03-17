@@ -1,4 +1,4 @@
-name: Reusable multi branch CD workflow
+name: Reusable multi branch CD workflow (DEV)
 
 on:
   workflow_call:
