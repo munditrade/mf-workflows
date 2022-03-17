@@ -33,7 +33,7 @@ jobs:
         uses: hashicorp/vault-action@v2.3.1
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          token: ${{ secrets.VAULTTOKEN }}
+          token: ${{ secrets.VAULT_TOKEN }}
           method: token
           secrets: |
             devops-customer-platform/dev DEVOPS_ENV;
