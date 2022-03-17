@@ -9,6 +9,9 @@ on:
       PROJECT_NAME:
         required: true
         type: string
+      VAULT_KV_PATH:
+        required: true
+        type: string
     secrets:
       VAULT_ADDR:
         required: true
@@ -28,6 +31,12 @@ jobs:
         uses: innovationnorway/setup-vault@v1
         with:
           version: '~1.9.2'
+
+      - name: Vault Secrets to env
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+        run: "vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}| sed 's/: /=/' > .env"
 
       - name: Import DEVOPS Secrets
         uses: hashicorp/vault-action@v2.3.1
