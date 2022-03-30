@@ -6,7 +6,7 @@ on:
       environment:
         required: true
         type: string
-      PROJECT_NAME:
+      version:
         required: true
         type: string
     secrets:
@@ -19,15 +19,15 @@ on:
 
 jobs:
   sentry_release:
-    name: Build project artifacts
+    name: Reusable workflow for sentry
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
-      - name: Prepare Env Variables
-        run: |
-          VERSION=$(git rev-parse --short HEAD)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - uses: actions/download-artifact@v2
+        with:
+          name: mf-build
+          path: dist
 
       - name: Create Sentry release
         uses: getsentry/action-release@v1
@@ -37,7 +37,7 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         with:
           environment: ${{ inputs.environment }}
-          sourcemaps: './dist'
           ignore_empty: true
-          version: ${{ env.VERSION }}
-          version_prefix: 'v'
+          sourcemaps: 'dist'
+          version: ${{ inputs.version }}
+          version_prefix: ${{ secrets.SENTRY_PROJECT }}@
