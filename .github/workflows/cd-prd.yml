@@ -41,7 +41,7 @@ jobs:
           BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
 
-      - uses: google-github-actions/setup-gcloud@master
+      - uses: google-github-actions/setup-gcloud@v0
         if: ${{ success() }}
         with:
           project_id: munditrade

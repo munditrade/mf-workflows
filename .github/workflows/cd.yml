@@ -1,0 +1,128 @@
+name: Continuos deployment reusable workflow
+
+on:
+  workflow_call:
+    inputs:
+      WEBAPP: 
+        description: 'The name of the web application'
+        default: 'customer'
+        required: false
+        type: string
+      PROJECT_ID:
+        required: true
+        type: string
+      PROJECT_NAME:
+        required: true
+        type: string
+      VAULT_KV_DEVOPS:
+        required: true
+        type: string
+      GCP_PROJECT_ID:
+        required: true
+        type: string
+    secrets:
+      VAULT_ADDR:
+        required: true
+      VAULT_TOKEN:
+        required: true
+      ORG_GOOGLE_CREDENTIALS:
+        required: true
+
+jobs:
+  cdn_upload:
+    name: Upload artifacts to mundi cdn
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Import DEVOPS Secrets
+        uses: hashicorp/vault-action@v2.3.1
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          token: ${{ secrets.VAULT_TOKEN }}
+          method: token
+          secrets: |
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV_DOMAIN;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_WEBAPP;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_MF;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_DEPLOYER_URL;
+
+      - name: Prepare env variables
+        run: |
+          VERSION=$(git rev-parse --short HEAD)
+          BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
+
+          MULTI_BRANCH_UK=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+          BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
+
+          echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
+          echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
+          echo "MULTI_BRANCH_UK=$MULTI_BRANCH_UK" >> $GITHUB_ENV
+
+      - uses: google-github-actions/setup-gcloud@v0
+        if: ${{ success() }}
+        with:
+          project_id: ${{ inputs.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
+          export_default_credentials: true
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: mf-build
+          path: dist
+      
+      - name: Upload bundle
+        if: ${{ success() }}
+        run: |
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -r dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
+
+      - name: Update import-map
+        if: ${{ success() }} && github.event_name != 'pull_request'
+        run: |
+          curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+
+      - name: create multi branch environment
+        if: ${{ success() }} && github.event_name == 'pull_request'
+        run: |
+          curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o ./jq
+          chmod a+x ./jq
+
+          # Download the import map
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/importmap.json live.importmap || echo '{"imports": {}}' > live.importmap
+
+          echo "Import Map before deployment:"
+          cat ./live.importmap
+
+          newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
+
+          # Modify the import map
+          cat ./live.importmap | ./jq --arg newUrl "$newUrl" '.imports["@mundi/${{ inputs.PROJECT_NAME }}"] = $newUrl' > importmap.json
+
+          echo "Import Map after deployment"
+          cat importmap.json
+
+          # Upload new importmap
+          gsutil -m -h "Content-Type:application/importmap+json" -h "Cache-Control:public, must-revalidate, max-age=10" cp importmap.json gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/
+
+          # Prepare index.html
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ inputs.WEBAPP }}-root-config/index.html index.html
+
+          # Override importmap source
+          echo "Replacing importmap source in index.html"
+          sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/importmap.json#g index.html
+
+          echo "After replace"
+          cat index.html | grep importmap.json
+
+          # Upload the index.html
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
+
+      - name: Comment PR
+        if: ${{ success() }} && github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@1.0.2
+        with:
+          message: |
+            PUBLIC_URL: https://${{ env.MULTI_BRANCH_UK }}.${{ inputs.WEBAPP }}.${{ env.DEVOPS_ENV_DOMAIN }}
+            ASSETS_URL: https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
