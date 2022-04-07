@@ -101,7 +101,7 @@ jobs:
           cat ./live.importmap
 
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          newUrl=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
+          newUrl=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/mundi-${{ inputs.PROJECT_NAME }}.js
           else
           newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
           fi
