@@ -125,20 +125,13 @@ jobs:
           cat index.html | grep importmap.json
 
           # Upload the index.html
-          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
-          else
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/${{ env.BUCKET_PATH_INDEX }}/
-          fi
 
       - name: Comment PR
         if: ${{ success() }} && github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@1.0.2
         with:
           message: |
-            if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
             PUBLIC_URL: https://${{ env.VERSION }}.customer.${{ env.DEVOPS_ENV_DOMAIN }}
             ASSETS_URL: https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}
-            else
-            fi
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
