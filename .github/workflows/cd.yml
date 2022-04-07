@@ -119,11 +119,7 @@ jobs:
 
           # Override importmap source
           echo "Replacing importmap source in index.html"
-          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/importmap.json#g index.html
-          else
           sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/importmap.json#g index.html
-          fi
 
           echo "After replace"
           cat index.html | grep importmap.json
