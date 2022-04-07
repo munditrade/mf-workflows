@@ -55,7 +55,11 @@ jobs:
           BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
 
           MULTI_BRANCH_UK=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+          BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.backoffice-$DEVOPS_ENV_DOMAIN/
+          else
           BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
+          fi
 
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
           echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
@@ -83,10 +87,11 @@ jobs:
         if: ${{ success() }} && github.event_name != 'pull_request'
         run: |
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+          curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
           else
           curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
           fi
+
       - name: create multi branch environment
         if: ${{ success() }} && github.event_name == 'pull_request'
         run: |
@@ -94,7 +99,7 @@ jobs:
           chmod a+x ./jq
 
           # Download the import map
-          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/importmap.json live.importmap || echo '{"imports": {}}' > live.importmap
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/importmap.json live.importmap || echo '{"imports": {}}' > live.importmap
 
           echo "Import Map before deployment:"
           cat ./live.importmap
@@ -112,21 +117,26 @@ jobs:
           cat importmap.json
 
           # Upload new importmap
+          
           gsutil -m -h "Content-Type:application/importmap+json" -h "Cache-Control:public, must-revalidate, max-age=10" cp importmap.json gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/
 
           # Prepare index.html
           echo "Download index.html"
-          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/customer-root-config/index.html index.html
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ inputs.WEBAPP }}-root-config/index.html index.html
 
           # Override importmap source
           echo "Replacing importmap source in index.html"
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+          sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/importmap.json#g index.html
+          else
           sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/importmap.json#g index.html
+          fi
 
           echo "After replace"
           cat index.html | grep importmap.json
 
           # Upload the index.html
-          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/${{ env.BUCKET_PATH_INDEX }}/
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
 
       - name: Comment PR
         if: ${{ success() }} && github.event_name == 'pull_request'
