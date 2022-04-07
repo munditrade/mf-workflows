@@ -94,6 +94,9 @@ jobs:
           echo "Import Map before deployment:"
           cat ./live.importmap
 
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+          newUrl=https://${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
+          else
           newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
 
           # Modify the import map
