@@ -55,11 +55,7 @@ jobs:
           BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
 
           MULTI_BRANCH_UK=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
-          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.backoffice-$DEVOPS_ENV_DOMAIN/
-          else
           BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
-          fi
 
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
           echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
