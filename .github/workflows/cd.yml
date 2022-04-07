@@ -93,13 +93,13 @@ jobs:
           chmod a+x ./jq
 
           # Download the import map
-          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/importmap.json live.importmap || echo '{"imports": {}}' > live.importmap
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/importmap.json live.importmap || echo '{"imports": {}}' > live.importmap
 
           echo "Import Map before deployment:"
           cat ./live.importmap
 
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          newUrl=https://${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
+          newUrl=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
           else
           newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
           fi
@@ -115,24 +115,34 @@ jobs:
 
           # Prepare index.html
           echo "Download index.html"
-          #gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ inputs.WEBAPP }}-root-config/index.html index.html
           gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/customer-root-config/index.html index.html
 
           # Override importmap source
           echo "Replacing importmap source in index.html"
-          sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/importmap.json#g index.html
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+          sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/importmap.json#g index.html
+          else
+          sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/importmap.json#g index.html
+          fi
 
           echo "After replace"
           cat index.html | grep importmap.json
 
           # Upload the index.html
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
+          else
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_CUSTOMER }}/${{ env.BUCKET_PATH_INDEX }}/
+          fi
 
       - name: Comment PR
         if: ${{ success() }} && github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@1.0.2
         with:
           message: |
-            PUBLIC_URL: https://${{ env.MULTI_BRANCH_UK }}.${{ inputs.WEBAPP }}.${{ env.DEVOPS_ENV_DOMAIN }}
-            ASSETS_URL: https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}
+            if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+            PUBLIC_URL: https://${{ env.VERSION }}.customer.${{ env.DEVOPS_ENV_DOMAIN }}
+            ASSETS_URL: https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}
+            else
+            fi
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
