@@ -117,8 +117,8 @@ jobs:
           cat importmap.json
 
           # Upload new importmap
-          
-          gsutil -m -h "Content-Type:application/importmap+json" -h "Cache-Control:public, must-revalidate, max-age=10" cp importmap.json gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/
+          echo "Upload Importmap"
+          gsutil -m -h "Content-Type:application/importmap+json" -h "Cache-Control:public, must-revalidate, max-age=10" cp importmap.json gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ env.VERSION }}/
 
           # Prepare index.html
           echo "Download index.html"
