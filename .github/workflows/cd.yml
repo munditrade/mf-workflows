@@ -80,8 +80,11 @@ jobs:
       - name: Update import-map
         if: ${{ success() }} && github.event_name != 'pull_request'
         run: |
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+          curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+          else
           curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
-
+          fi
       - name: create multi branch environment
         if: ${{ success() }} && github.event_name == 'pull_request'
         run: |
@@ -98,6 +101,7 @@ jobs:
           newUrl=https://${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
           else
           newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
+          fi
 
           # Modify the import map
           cat ./live.importmap | ./jq --arg newUrl "$newUrl" '.imports["@mundi/${{ inputs.PROJECT_NAME }}"] = $newUrl' > importmap.json
