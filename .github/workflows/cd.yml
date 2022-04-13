@@ -80,7 +80,7 @@ jobs:
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -r dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
 
       - name: Update import-map
-        if: ${{ success() }} && ${{ github.ref == 'refs/heads/master' }}
+        if: success() && github.ref == 'refs/heads/master'
         run: |
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
           curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
@@ -89,7 +89,7 @@ jobs:
           fi
 
       - name: create multi branch environment
-        if: ${{ success() }} && ${{ github.ref != 'refs/heads/master'}}
+        if: success() && github.ref != 'refs/heads/master'
         run: |
           curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o ./jq
           chmod a+x ./jq
