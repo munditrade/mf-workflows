@@ -91,7 +91,7 @@ jobs:
       - name: upload-files index.html
         if: success() && github.ref == 'refs/heads/master' && contains(github.event.repository.name, 'root-config')
         run: |
-          gsutil rsync -d -r -x '(?!^index\.html$)' dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}
+          gsutil rsync -d -r -x '(?!^index\.html$)' dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/
 
       - name: create multi branch environment
         if: success() && github.ref != 'refs/heads/master'
