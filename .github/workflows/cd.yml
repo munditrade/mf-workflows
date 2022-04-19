@@ -48,6 +48,8 @@ jobs:
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_MF;
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_CUSTOMER;
             ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_DEPLOYER_URL;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_USER;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_PASS;
 
       - name: Prepare env variables
         run: |
@@ -61,6 +63,8 @@ jobs:
           echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
           echo "MULTI_BRANCH_UK=$MULTI_BRANCH_UK" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "IMPORT_MAP_USER=$IMPORT_MAP_USER" >> $GITHUB_ENV
+          echo "IMPORT_MAP_PASS=$IMPORT_MAP_PASS" >> $GITHUB_ENV
 
       - uses: google-github-actions/setup-gcloud@v0
         if: ${{ success() }}
@@ -83,9 +87,9 @@ jobs:
         if: success() && github.ref == 'refs/heads/master'
         run: |
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+          curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
           else
-          curl -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+          curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
           fi
 
       - name: upload-files index.html
