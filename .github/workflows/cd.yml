@@ -87,7 +87,7 @@ jobs:
         if: success() && github.ref == 'refs/heads/master'
         run: |
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+          curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
           else
           curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
           fi
