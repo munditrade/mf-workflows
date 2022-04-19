@@ -59,12 +59,19 @@ jobs:
           MULTI_BRANCH_UK=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
           BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
 
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+          PUBLIC_URL=https://${{ env.MULTI_BRANCH_UK }}.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
+          else
+          PUBLIC_URL=https://${{ env.MULTI_BRANCH_UK }}.customer.${{ env.DEVOPS_ENV_DOMAIN }}
+          fi
+
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
           echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
           echo "MULTI_BRANCH_UK=$MULTI_BRANCH_UK" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "IMPORT_MAP_USER=$IMPORT_MAP_USER" >> $GITHUB_ENV
           echo "IMPORT_MAP_PASS=$IMPORT_MAP_PASS" >> $GITHUB_ENV
+          echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_ENV
 
       - uses: google-github-actions/setup-gcloud@v0
         if: ${{ success() }}
@@ -144,20 +151,11 @@ jobs:
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
 
       - name: Comment PR
-        if: success() && github.ref != 'refs/heads/master' && ${{ inputs.WEBAPP }} != 'backoffice'
-        uses: thollander/actions-comment-pull-request@1.0.2
-        with:
-          message: |
-            PUBLIC_URL: https://${{ env.MULTI_BRANCH_UK }}.customer.${{ env.DEVOPS_ENV_DOMAIN }}
-            ASSETS_URL: https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Comment PR
         if: success() && github.ref != 'refs/heads/master'
         uses: thollander/actions-comment-pull-request@1.0.2
         with:
           message: |
-            PUBLIC_URL: https://${{ env.MULTI_BRANCH_UK }}.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
+            PUBLIC_URL: ${{ env.PUBLIC_URL }}
             ASSETS_URL: https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
