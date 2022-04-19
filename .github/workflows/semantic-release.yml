@@ -56,4 +56,4 @@ jobs:
       - name: Create new release
         run: npx semantic-release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ env.GITHUB_TOKEN }}
