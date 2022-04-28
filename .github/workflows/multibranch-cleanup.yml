@@ -1,0 +1,75 @@
+name: Reusable semantic release workflow
+
+on:
+  workflow_call:
+    inputs:
+      PROJECT_ID:
+        required: true
+        type: string
+      PROJECT_NAME:
+        required: true
+        type: string
+      VAULT_KV_DEVOPS:
+        required: true
+        type: string
+    secrets:
+      VAULT_ADDR:
+        required: true
+      VAULT_TOKEN:
+        required: true
+
+jobs:
+  merge-job:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo PR #${{ github.event.number }} has been merged
+
+  clean-up:
+    name: Clean up multibranch environment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Import DEVOPS Secrets
+        uses: hashicorp/vault-action@v2.3.1
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          token: ${{ secrets.VAULT_TOKEN }}
+          method: token
+          secrets: |
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV_DOMAIN;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_WEBAPP;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_MF;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_CUSTOMER;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_DEPLOYER_URL;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_USER;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_PASS;
+
+      - name: Prepare Env Variables
+        shell: bash
+        run: |
+          VERSION=$(git rev-parse --short HEAD)
+          BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
+
+          MULTI_BRANCH_UK=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+          BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
+
+          echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
+          echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
+          echo "MULTI_BRANCH_UK=$MULTI_BRANCH_UK" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - uses: google-github-actions/setup-gcloud@v0
+        if: ${{ success() }}
+        with:
+          project_id: ${{ inputs.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
+          export_default_credentials: true
+
+      - name: delete buckets directories
+        if: ${{ success() }}
+        run: |
+          gsutil -m rm -r gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
+          gsutil -m rm -r gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}
