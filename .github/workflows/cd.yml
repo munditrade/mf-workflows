@@ -60,11 +60,11 @@ jobs:
           BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
 
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          PUBLIC_URL=https://${{ env.MULTI_BRANCH_UK }}.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
-          ASSETS_URL=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}
+          PUBLIC_URL=https://$MULTI_BRANCH_UK.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
+          ASSETS_URL=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
           else
-          PUBLIC_URL=https://${{ env.MULTI_BRANCH_UK }}.customer.${{ env.DEVOPS_ENV_DOMAIN }}
-          ASSETS_URL=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}
+          PUBLIC_URL=https://$MULTI_BRANCH_UK.customer.${{ env.DEVOPS_ENV_DOMAIN }}
+          ASSETS_URL=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
           fi
 
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
