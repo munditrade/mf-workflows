@@ -12,7 +12,12 @@ on:
       VAULT_KV_DEVOPS:
         required: true
         type: string
+      GCP_PROJECT_ID:
+        required: true
+        type: string
     secrets:
+      ORG_GOOGLE_CREDENTIALS:
+        required: true
       VAULT_ADDR:
         required: true
       VAULT_TOKEN:
@@ -71,5 +76,5 @@ jobs:
       - name: delete buckets directories
         if: ${{ success() }}
         run: |
-          gsutil -m rm -r gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
+          gsutil -m rm -r gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ github.event.number }}
           gsutil -m rm -r gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}
