@@ -76,5 +76,5 @@ jobs:
       - name: delete buckets directories
         if: ${{ success() }}
         run: |
-          gsutil -m rm -r gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ github.event.number }}
+          gsutil -m rm -r gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
           gsutil -m rm -r gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}
