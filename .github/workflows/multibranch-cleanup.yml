@@ -55,16 +55,13 @@ jobs:
       - name: Prepare Env Variables
         shell: bash
         run: |
-          VERSION=$(git rev-parse --short HEAD)
-          BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
+          VERSION=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
 
-          MULTI_BRANCH_UK=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+          BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
           BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
 
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
           echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
-          echo "MULTI_BRANCH_UK=$MULTI_BRANCH_UK" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - uses: google-github-actions/setup-gcloud@v0
         if: ${{ success() }}

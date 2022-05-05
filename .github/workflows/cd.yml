@@ -32,8 +32,6 @@ jobs:
   cdn_upload:
     name: Upload artifacts to mundi cdn
     runs-on: ubuntu-latest
-    env:
-      IS_MULTI_BRANCH: github.event_name == 'pull_request' && github.ref != 'refs/heads/master'
     steps:
       - uses: actions/checkout@v2
 
@@ -48,30 +46,32 @@ jobs:
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV_DOMAIN;
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_WEBAPP;
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_MF;
-            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_CUSTOMER;
             ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_DEPLOYER_URL;
             ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_USER;
             ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_PASS;
 
       - name: Prepare env variables
         run: |
-          VERSION=$(git rev-parse --short HEAD)
-          BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
 
-          MULTI_BRANCH_UK=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
-          BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
+          if [ "${{ env.DEVOPS_ENV }}" == "dev" ]; then
+          VERSION=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+          else
+          VERSION=$(git rev-parse --short HEAD)
+          fi
+
+          BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
+          BUCKET_PATH_INDEX=$VERSION.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
 
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          PUBLIC_URL=https://$MULTI_BRANCH_UK.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
+          PUBLIC_URL=https://$VERSION.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
           ASSETS_URL=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
           else
-          PUBLIC_URL=https://$MULTI_BRANCH_UK.customer.${{ env.DEVOPS_ENV_DOMAIN }}
+          PUBLIC_URL=https://$VERSION.customer.${{ env.DEVOPS_ENV_DOMAIN }}
           ASSETS_URL=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
           fi
 
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
           echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
-          echo "MULTI_BRANCH_UK=$MULTI_BRANCH_UK" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "IMPORT_MAP_USER=$IMPORT_MAP_USER" >> $GITHUB_ENV
           echo "IMPORT_MAP_PASS=$IMPORT_MAP_PASS" >> $GITHUB_ENV
@@ -96,7 +96,7 @@ jobs:
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -r dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
 
       - name: Update import-map
-        if: success() && !env.IS_MULTI_BRANCH
+        if: success() && env.DEVOPS_ENV != 'dev'
         run: |
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
           curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
@@ -105,12 +105,12 @@ jobs:
           fi
 
       - name: upload-files index.html
-        if: success() && !env.IS_MULTI_BRANCH && contains(github.event.repository.name, 'root-config')
+        if: success() && env.DEVOPS_ENV != 'dev' && contains(github.event.repository.name, 'root-config')
         run: |
           gsutil rsync -d -r -x '(?!^index\.html$)' dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/
 
       - name: create multi branch environment
-        if: success() && env.IS_MULTI_BRANCH
+        if: success() && env.DEVOPS_ENV == 'dev'
         run: |
           curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o ./jq
           chmod a+x ./jq
@@ -124,7 +124,7 @@ jobs:
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
           newUrl=https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/mundi-${{ inputs.PROJECT_NAME }}.js
           else
-          newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.MULTI_BRANCH_UK }}/mundi-${{ inputs.PROJECT_NAME }}.js
+          newUrl=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/mundi-${{ inputs.PROJECT_NAME }}.js
           fi
 
           # Modify the import map
@@ -135,7 +135,7 @@ jobs:
 
           # Upload new importmap
           echo "Upload Importmap"
-          gsutil -m -h "Content-Type:application/importmap+json" -h "Cache-Control:public, must-revalidate, max-age=10" cp importmap.json gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ github.event.repository.name }}/${{ env.VERSION }}/
+          gsutil -m -h "Content-Type:application/importmap+json" -h "Cache-Control:public, must-revalidate, max-age=10" cp importmap.json gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
 
           # Prepare index.html
           echo "Download index.html"
@@ -156,7 +156,7 @@ jobs:
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
 
       - name: Comment PR
-        if: success() && env.IS_MULTI_BRANCH
+        if: success() && env.DEVOPS_ENV == 'dev'
         uses: thollander/actions-comment-pull-request@1.0.2
         with:
           message: |
