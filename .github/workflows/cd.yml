@@ -52,22 +52,25 @@ jobs:
 
       - name: Prepare env variables
         run: |
-
           if [ "${{ env.DEVOPS_ENV }}" == "dev" ]; then
-          VERSION=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+            if ["${{ github.event.action }}" == "closed" ]; then
+              VERSION=latest
+            else
+              VERSION=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+            fi
           else
-          VERSION=$(git rev-parse --short HEAD)
+            VERSION=$(git rev-parse --short HEAD)
           fi
 
           BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
           BUCKET_PATH_INDEX=$VERSION.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
 
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          PUBLIC_URL=https://$VERSION.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
-          ASSETS_URL=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
+            PUBLIC_URL=https://$VERSION.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
+            ASSETS_URL=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
           else
-          PUBLIC_URL=https://$VERSION.customer.${{ env.DEVOPS_ENV_DOMAIN }}
-          ASSETS_URL=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
+            PUBLIC_URL=https://$VERSION.customer.${{ env.DEVOPS_ENV_DOMAIN }}
+            ASSETS_URL=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
           fi
 
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
