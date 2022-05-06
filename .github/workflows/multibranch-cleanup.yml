@@ -47,7 +47,6 @@ jobs:
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV_DOMAIN;
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_WEBAPP;
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_MF;
-            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_CUSTOMER;
             ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_DEPLOYER_URL;
             ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_USER;
             ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_PASS;
@@ -58,7 +57,7 @@ jobs:
           VERSION=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
 
           BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
-          BUCKET_PATH_INDEX=$MULTI_BRANCH_UK.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
+          BUCKET_PATH_INDEX=$VERSION.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
 
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
           echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV

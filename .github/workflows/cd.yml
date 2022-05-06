@@ -52,11 +52,14 @@ jobs:
 
       - name: Prepare env variables
         run: |
+          MULTI_BRANCH=false
+          # set version by env
           if [ "${{ env.DEVOPS_ENV }}" == "dev" ]; then
-            if ["${{ github.event.action }}" == "closed" ]; then
-              VERSION=latest
+            if [ "${{ github.event.action }}" == "closed" ]; then
+              VERSION="latest"
             else
               VERSION=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+              MULTI_BRANCH=true
             fi
           else
             VERSION=$(git rev-parse --short HEAD)
@@ -80,6 +83,7 @@ jobs:
           echo "IMPORT_MAP_PASS=$IMPORT_MAP_PASS" >> $GITHUB_ENV
           echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_ENV
           echo "ASSETS_URL=$ASSETS_URL" >> $GITHUB_ENV
+          echo "MULTI_BRANCH=$MULTI_BRANCH" >> $GITHUB_ENV
 
       - uses: google-github-actions/setup-gcloud@v0
         if: ${{ success() }}
@@ -99,7 +103,7 @@ jobs:
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -r dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
 
       - name: Update import-map
-        if: success() && env.DEVOPS_ENV != 'dev'
+        if: success() && env.MULTI_BRANCH == 'false'
         run: |
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
           curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
@@ -108,12 +112,12 @@ jobs:
           fi
 
       - name: upload-files index.html
-        if: success() && env.DEVOPS_ENV != 'dev' && contains(github.event.repository.name, 'root-config')
+        if: success() && env.MULTI_BRANCH == 'false' && contains(github.event.repository.name, 'root-config')
         run: |
           gsutil rsync -d -r -x '(?!^index\.html$)' dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/
 
       - name: create multi branch environment
-        if: success() && env.DEVOPS_ENV == 'dev'
+        if: success() && env.MULTI_BRANCH == 'true'
         run: |
           curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o ./jq
           chmod a+x ./jq
@@ -159,7 +163,7 @@ jobs:
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
 
       - name: Comment PR
-        if: success() && env.DEVOPS_ENV == 'dev'
+        if: success() && env.MULTI_BRANCH == 'true'
         uses: thollander/actions-comment-pull-request@1.0.2
         with:
           message: |
