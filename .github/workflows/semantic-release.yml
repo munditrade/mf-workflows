@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v2.2.0
 
       - name: Setup Vault Cli
-        uses: innovationnorway/setup-vault@v1
+        uses: eLco/setup-vault@v1
         with:
           version: '~1.9.2'
 
