@@ -1,0 +1,64 @@
+name: Check workflow status
+
+on:
+  workflow_call:
+    outputs:
+      workflow_status:
+        description: 'The final status of the workflow'
+        value: ${{ jobs.validate_workflow_status.outputs.status }}
+      workflow_conclusion:
+        description: 'The conclusion of the workflow'
+        value: ${{ jobs.validate_workflow_status.outputs.conclusion }}
+    inputs:
+      WORKFLOW_NAME:
+        required: true
+        type: string
+
+jobs:
+  validate_workflow_status:
+    name: Upload artifacts to mundi cdn
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check-workflow.outputs.status }}
+      conclusion: ${{ steps.check-workflow.outputs.conclusion }}
+    steps:
+      - id: check-workflow
+        run: |
+          # exit if any command exits with non-zero status
+          set -e 
+
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          REPO=${{ github.event.repository.name }}
+          WORKFLOW_NAME=${{ inputs.WORKFLOW_NAME }}
+          TEMP_FILE="temp.json"
+          SLEEP_INTERVAL=30
+
+          echo "Checking conclusion of the last executed run in \"$REPO\" repository:"
+
+          while true; do
+
+              curl \
+                  --silent \
+                  --location \
+                  --request GET \
+                  --header 'Accept: application/vnd.github.everest-preview+json' \
+                  --header 'Content-Type: application/json' \
+                  --header "Authorization: token $GITHUB_TOKEN" \
+                  --header 'cache-control: no-cache' \
+                  "https://api.github.com/repos/${REPO}/actions/runs" > $TEMP_FILE
+              
+              STATUS=$(jq -r ".workflow_runs | map(select( .name | contains(\"$WORKFLOW_NAME\"))) | sort_by( .created_at )| .[-1] | .status" $TEMP_FILE)
+              echo "Check suite state on workflow [$WORKFLOW_NAME]: ${STATUS}"
+              echo "::set-output name=status::${STATUS}"
+
+              if [ "$STATUS" = "completed" ]; then
+                  CONCLUSION=$(jq -r ".workflow_runs | map(select( .name | contains(\"$WORKFLOW_NAME\"))) | sort_by( .created_at )| .[-1] | .conclusion" $TEMP_FILE)
+                  echo "Check suite conclusion on workflow [$WORKFLOW_NAME]: ${CONCLUSION}"
+                  echo "::set-output name=conclusion::${CONCLUSION}"
+                  break;
+              fi
+
+              sleep $SLEEP_INTERVAL
+          done
+
+          rm $TEMP_FILE || true
