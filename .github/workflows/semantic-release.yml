@@ -18,6 +18,9 @@ jobs:
   semantic_release:
     name: Create new semantic release
     runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v2.2.0
 
@@ -45,7 +48,6 @@ jobs:
         uses: actions/cache@v2
         env:
           cache-name: cache-node-modules
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         with:
           path: ~/.npm
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
