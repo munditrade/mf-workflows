@@ -11,6 +11,8 @@ on:
         required: true
       VAULT_TOKEN:
         required: true
+      NPM_TOKEN:
+        required: false
 
 jobs:
   semantic_release:
@@ -43,6 +45,7 @@ jobs:
         uses: actions/cache@v2
         env:
           cache-name: cache-node-modules
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         with:
           path: ~/.npm
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
@@ -56,4 +59,4 @@ jobs:
       - name: Create new release
         run: npx semantic-release
         env:
-          GH_TOKEN: ${{ env.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
