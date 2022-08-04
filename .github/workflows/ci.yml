@@ -15,6 +15,10 @@ on:
         required: false
       GH_TOKEN:
         required: false
+      VPN_CONFIG:
+        required: true
+      VPN_PASS:
+        required: true
 
 jobs:
   create-artifacts:
@@ -30,6 +34,12 @@ jobs:
         uses: eLco/setup-vault@v1
         with:
           version: '~1.9.2'
+
+      - name: Connect to VPN
+        uses: munditrade/action-connect_vpn@main
+        with:
+          vpn_config: ${{ secrets.VPN_CONFIG }}
+          vpn_pass: ${{ secrets.VPN_PASS }}
 
       - name: Vault Secrets to env
         env:
