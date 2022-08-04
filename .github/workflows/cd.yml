@@ -27,6 +27,10 @@ on:
         required: true
       ORG_GOOGLE_CREDENTIALS:
         required: true
+      VPN_CONFIG:
+        required: true
+      VPN_PASS:
+        required: true
 
 jobs:
   cdn_upload:
@@ -34,6 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
+      - name: Connect to VPN
+        uses: munditrade/action-connect_vpn@main
+        with:
+          vpn_config: ${{ secrets.VPN_CONFIG }}
+          vpn_pass: ${{ secrets.VPN_PASS }}
 
       - name: Import DEVOPS Secrets
         uses: hashicorp/vault-action@v2.3.1
