@@ -24,11 +24,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Setup Vault Cli
-        uses: innovationnorway/setup-vault@v1
-        with:
-          version: '~1.9.2'
-
       - name: Import DEVOPS Secrets
         uses: hashicorp/vault-action@v2.3.1
         with:
