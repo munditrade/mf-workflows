@@ -125,9 +125,9 @@ jobs:
         if: success() && env.MULTI_BRANCH == 'false' && contains(github.event.repository.name, 'root-config')
         run: |
           if [ "${{ env.DEVOPS_ENV }}" == "dev" ]; then
-            gsutil -m -h "Cache-Control:public, must-revalidate, max-age=1" rsync -d -r -x '(?!^index\.html$)' dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH }}
+            gsutil -m -h "Cache-Control:public, must-revalidate, max-age=1" cp dist/index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH }}
           else
-            gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -d -r -x '(?!^index\.html$)' dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/
+            gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp dist/index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/
           fi
 
       - name: create multi branch environment
