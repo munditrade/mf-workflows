@@ -51,7 +51,7 @@ jobs:
         with:
           credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
       - name: Login to Artifact Registry
-        run: npx run artifactregistry-login
+        run: npm run artifactregistry-login
       - name: Cache node modules
         uses: actions/cache@v2
         env:
@@ -99,7 +99,12 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v0
+        with:
+          credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
+      - name: Login to Artifact Registry
+        run: npm run artifactregistry-login
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
