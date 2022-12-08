@@ -2,10 +2,6 @@ name: Reusable publish artifacts workflow
 
 on:
   workflow_call:
-    inputs:
-      VAULT_ENGINE:
-        required: true
-        type: string
     secrets:
       NPM_REGISTRY_CREDENTIALS:
         required: true
@@ -67,7 +63,7 @@ jobs:
         env:
           VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
-        run: "vault kv get -format yaml -field=data ${{ inputs.VAULT_ENGINE }}/${{ matrix.env }} | sed 's/: /=/' > .env"
+        run: "vault kv get -format yaml -field=data ${{ github.event.repository.name }}/${{ matrix.env }} | sed 's/: /=/' > .env"
       - uses: actions/setup-node@v2
         with:
           node-version: 14.x
