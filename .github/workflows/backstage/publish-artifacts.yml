@@ -1,0 +1,129 @@
+name: Publish artifacts
+
+on:
+  workflow_call:
+    inputs:
+      VAULT_KV_PATH:
+        required: false
+        type: string
+    secrets:
+      ORG_GOOGLE_CREDENTIALS:
+        required: true
+      NPM_REGISTRY_CREDENTIALS:
+        required: true
+      NPM_TOKEN:
+        required: false
+      GH_TOKEN:
+        required: false
+      VAULT_INTERNAL_ADDR:
+        required: true
+      VAULT_TOKEN:
+        required: true
+      VPN_CONFIG:
+        required: true
+      VPN_PASS:
+        required: true
+
+jobs:
+  next-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.x
+      - run: npm ci --omit=dev --ignore-scripts
+      - run: npx semantic-release --dry-run
+        id: get-next-version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+    outputs:
+      new-release-published: ${{ steps.get-next-version.outputs.new-release-published }}
+      new-release-version: ${{ steps.get-next-version.outputs.new-release-version }}
+
+  publish:
+    name: Publish artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: next-version
+    if: needs.next-version.outputs.new-release-published == 'true'
+    env:
+      CI: true
+    strategy:
+      matrix:
+        env: [dev, stg, prd]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Connect to VPN
+        if: ${{ inputs.VAULT_KV_PATH }} != ''
+        uses: munditrade/action-connect_vpn@main
+        with:
+          vpn_config: ${{ secrets.VPN_CONFIG }}
+          vpn_pass: ${{ secrets.VPN_PASS }}
+      - name: Setup Vault Cli
+        uses: eLco/setup-vault@v1
+        with:
+          vault_version: '~1.9.2'
+      - name: Vault Secrets to env
+        if: ${{ inputs.VAULT_KV_PATH }} != ''
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_INTERNAL_ADDR }}
+          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+        run: "vault kv get -format yaml -field=data platform-mf/${{ matrix.env }} | sed 's/: /=/' > .env"
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v0
+        with:
+          credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
+      - uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 7
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: Login to Artifact Registry
+        run: pnpm artifactregistry-login
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run build
+      - id: 'auth'
+        uses: google-github-actions/auth@v0.4.0
+        with:
+          credentials_json: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
+      - uses: google-github-actions/setup-gcloud@v0
+        with:
+          project_id: prj-mundi-${{ matrix.env }}
+          service_account_key: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
+          export_default_credentials: true
+      - name: Upload bundle
+        if: ${{ success() }}
+        run: |
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -r dist/ gs://cdnmf-${{ matrix.env }}/${{ github.event.repository.name }}/${{ needs.next-version.outputs.new-release-version }}/
+  release:
+    name: Release semantic version
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Set @mundibot as committer
+        run: |
+          git config --global user.name "mundibot"
+          git config --global user.email "tech@mundi.io"
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 14.x
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release
