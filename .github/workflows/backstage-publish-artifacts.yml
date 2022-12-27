@@ -41,6 +41,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
+      - run: pnpm artifactregistry-login
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
       - run: npx semantic-release --dry-run
