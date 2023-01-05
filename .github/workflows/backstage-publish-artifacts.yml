@@ -128,11 +128,22 @@ jobs:
         run: |
           git config --global user.name "mundibot"
           git config --global user.email "tech@mundi.io"
-      - uses: actions/setup-node@v2
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v0
         with:
-          node-version: 14.x
-          cache: 'npm'
-      - run: npm ci --ignore-scripts
+          credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
+      - uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 7
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: Login to Artifact Registry
+        run: pnpm artifactregistry-login
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
