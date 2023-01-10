@@ -11,6 +11,10 @@ on:
         required: true
       GH_TOKEN:
         required: false
+      VAULT_INTERNAL_ADDR:
+        required: true
+      VAULT_TOKEN:
+        required: true
       VPN_CONFIG:
         required: true
       VPN_PASS:
