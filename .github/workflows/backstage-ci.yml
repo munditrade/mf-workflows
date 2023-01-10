@@ -44,7 +44,7 @@ jobs:
       - name: Vault Secrets to env
         if: ${{ inputs.VAULT_KV_PATH }} != ''
         env:
-          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          VAULT_ADDR: ${{ secrets.VAULT_INTERNAL_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
         run: "vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}| sed 's/: /=/' > .env"
       - name: Authenticate to Google Cloud
