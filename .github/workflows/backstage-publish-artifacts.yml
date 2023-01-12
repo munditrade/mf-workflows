@@ -83,7 +83,7 @@ jobs:
         env:
           VAULT_ADDR: ${{ secrets.VAULT_INTERNAL_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
-        run: "vault kv get -format yaml -field=data ${{ github.event.repository.name }}/${{ matrix.env }} | sed 's/: /=/' > .env"
+        run: "vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}/${{ matrix.env }} | sed 's/: /=/' > .env"
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v0
         with:
