@@ -55,18 +55,11 @@ jobs:
         uses: google-github-actions/auth@v0
         with:
           credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
-
-      - name: Cache node modules
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-node-modules
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          node-version-file: '.nvmrc'
+          cache: 'npm'
       - name: Login to Artifact Registry
         run: npm run artifactregistry-login
       - name: Install dependencies
@@ -92,22 +85,10 @@ jobs:
         uses: google-github-actions/auth@v0
         with:
           credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
-
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
-          node-version: 14.x
-
-      - name: Cache node modules
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-node-modules
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          node-version-file: '.nvmrc'
+          cache: 'npm'
       - name: Login to Artifact Registry
         run: npm run artifactregistry-login
       - name: Install dependencies
