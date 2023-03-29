@@ -1,0 +1,183 @@
+
+name: Continuos deployment reusable workflow
+
+on:
+  workflow_call:
+    inputs:
+      WEBAPP: 
+        description: 'The name of the web application'
+        default: 'customer'
+        required: false
+        type: string
+      PROJECT_ID:
+        required: true
+        type: string
+      PROJECT_NAME:
+        required: true
+        type: string
+      VAULT_KV_DEVOPS:
+        required: true
+        type: string
+      GCP_PROJECT_ID:
+        required: true
+        type: string
+    secrets:
+      VAULT_ADDR:
+        required: true
+      VAULT_TOKEN:
+        required: true
+      ORG_GOOGLE_CREDENTIALS:
+        required: true
+      VPN_CONFIG:
+        required: true
+      VPN_PASS:
+        required: true
+
+jobs:
+  cdn_upload:
+    name: Upload artifacts to mundi cdn
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Connect to VPN
+        uses: munditrade/action-connect_vpn@main
+        with:
+          vpn_config: ${{ secrets.VPN_CONFIG }}
+          vpn_pass: ${{ secrets.VPN_PASS }}
+      - run: cd navigation
+      - name: Import DEVOPS Secrets
+        uses: hashicorp/vault-action@v2.3.1
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          token: ${{ secrets.VAULT_TOKEN }}
+          method: token
+          secrets: |
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV_DOMAIN;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_WEBAPP;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_MF;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_DEPLOYER_URL;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_USER;
+            ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_PASS;
+
+      - name: Prepare env variables
+        run: |
+          MULTI_BRANCH=false
+          # set version by env
+          if [ "${{ env.DEVOPS_ENV }}" == "dev" ]; then
+            if [ "${{ github.event.action }}" == "closed" ]; then
+              VERSION="latest"
+            else
+              VERSION=${{ inputs.PROJECT_ID }}-${{ github.event.number }}
+              MULTI_BRANCH=true
+            fi
+          else
+            VERSION=$(git rev-parse --short HEAD)
+          fi
+
+          BUCKET_PATH=${{ github.event.repository.name }}/$VERSION
+          BUCKET_PATH_INDEX=$VERSION.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
+
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+            PUBLIC_URL=https://$VERSION.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
+            ASSETS_URL=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
+          else
+            PUBLIC_URL=https://$VERSION.customer.${{ env.DEVOPS_ENV_DOMAIN }}
+            ASSETS_URL=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
+          fi
+
+          echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
+          echo "BUCKET_PATH_INDEX=$BUCKET_PATH_INDEX" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "IMPORT_MAP_USER=$IMPORT_MAP_USER" >> $GITHUB_ENV
+          echo "IMPORT_MAP_PASS=$IMPORT_MAP_PASS" >> $GITHUB_ENV
+          echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_ENV
+          echo "ASSETS_URL=$ASSETS_URL" >> $GITHUB_ENV
+          echo "MULTI_BRANCH=$MULTI_BRANCH" >> $GITHUB_ENV
+
+      - uses: google-github-actions/setup-gcloud@v0
+        if: ${{ success() }}
+        with:
+          project_id: ${{ inputs.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
+          export_default_credentials: true
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: mf-build
+          path: dist
+      
+      - name: Upload bundle
+        if: ${{ success() }}
+        run: |
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -r dist/ gs://${{ env.DEVOPS_FRONTEND_BUCKET_MF }}/${{ env.BUCKET_PATH }}
+
+      - name: Update import-map
+        if: success() && env.MULTI_BRANCH == 'false'
+        run: |
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+          curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+          else
+          curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+          fi
+
+      - name: upload-files index.html
+        if: success() && env.MULTI_BRANCH == 'false' && contains(github.event.repository.name, 'root-config')
+        run: |
+          if [ "${{ env.DEVOPS_ENV }}" == "dev" ]; then
+            gsutil -m -h "Cache-Control:public, must-revalidate, max-age=1" cp dist/index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH }}
+          else
+            gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp dist/index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/
+          fi
+
+      - name: create multi branch environment
+        if: success() && env.MULTI_BRANCH == 'true'
+        run: |
+          curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o ./jq
+          chmod a+x ./jq
+
+          # Download the import map
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/importmap.json live.importmap || echo '{"imports": {}}' > live.importmap
+
+          echo "Import Map before deployment:"
+          cat ./live.importmap
+
+          newUrl=https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/mundi-${{ inputs.PROJECT_NAME }}.js
+
+          # Modify the import map
+          cat ./live.importmap | ./jq --arg newUrl "$newUrl" '.imports["@mundi/${{ inputs.PROJECT_NAME }}"] = $newUrl' > importmap.json
+
+          echo "Import Map after deployment"
+          cat importmap.json
+
+          # Upload new importmap
+          echo "Upload Importmap"
+          gsutil -m -h "Content-Type:application/importmap+json" -h "Cache-Control:public, must-revalidate, max-age=10" cp importmap.json gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
+
+          # Prepare index.html
+          echo "Download index.html"
+          gsutil -m cp gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ inputs.WEBAPP }}-root-config/latest/index.html index.html
+
+          # Override importmap source
+          echo "Replacing importmap source in index.html"
+          if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
+            sed -i -- s#https://cdnmf.dev.mundi.work/backoffice/importmap.json#${{ env.PUBLIC_URL }}/importmap.json#g index.html
+          else
+            sed -i -- s#https://mf.dev.mundi.work/importmap.json#https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ env.VERSION }}/importmap.json#g index.html
+          fi
+
+          echo "After replace"
+          cat index.html | grep importmap.json
+
+          # Upload the index.html
+          gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" cp index.html gs://${{ env.DEVOPS_FRONTEND_BUCKET_WEBAPP }}/${{ env.BUCKET_PATH_INDEX }}/
+
+      - name: Comment PR
+        if: success() && env.MULTI_BRANCH == 'true'
+        uses: thollander/actions-comment-pull-request@1.0.2
+        with:
+          message: |
+            PUBLIC_URL: ${{ env.PUBLIC_URL }}
+            ASSETS_URL: ${{ env.ASSETS_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
