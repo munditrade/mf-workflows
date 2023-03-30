@@ -17,6 +17,8 @@ on:
         required: true
       VPN_PASS:
         required: true
+      NPM_REGISTRY_CREDENTIALS:
+        required: true
 
 jobs:
   semantic_release:
@@ -50,9 +52,10 @@ jobs:
           echo "" >> .env
           cat .env >> $GITHUB_ENV
 
-      - uses: actions/setup-node@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
         with:
-          node-version: 14.x
+          node-version-file: '.nvmrc'
 
       - name: Cache node modules
         uses: actions/cache@v2
@@ -65,6 +68,14 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v0
+        with:
+          credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
+
+      - name: Login to Artifact Registry
+        run: npm run artifactregistry-login
 
       - run: npm ci --omit=dev --ignore-scripts
 
