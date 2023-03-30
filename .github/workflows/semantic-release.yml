@@ -17,6 +17,8 @@ on:
         required: true
       VPN_PASS:
         required: true
+      NPM_REGISTRY_CREDENTIALS:
+        required: true
 
 jobs:
   semantic_release:
