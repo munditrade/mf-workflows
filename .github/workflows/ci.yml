@@ -34,7 +34,7 @@ jobs:
       - name: Setup Vault Cli
         uses: eLco/setup-vault@v1
         with:
-          vault_version: '~1.9.2'
+          vault_version: '1.9.2'
 
       - name: Connect to VPN
         uses: munditrade/action-connect_vpn@main
