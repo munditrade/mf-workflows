@@ -62,10 +62,11 @@ jobs:
           cache: 'npm'
       - name: Login to Artifact Registry
         run: npm run artifactregistry-login
+
+      - run: npm cache clean --force
+      
       - name: Install dependencies
-        run: |
-          npm cache clean --force
-          npm ci --ignore-scripts
+        run: npm ci --ignore-scripts
 
       - run: npm run build
 
