@@ -56,10 +56,11 @@ jobs:
         with:
           credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
+          
       - name: Login to Artifact Registry
         run: npm run artifactregistry-login
 
