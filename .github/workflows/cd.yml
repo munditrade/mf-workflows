@@ -54,6 +54,7 @@ jobs:
           secrets: |
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV;
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV_DOMAIN;
+            ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_ENV_PRIVATE_DOMAIN;
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_WEBAPP;
             ${{ inputs.VAULT_KV_DEVOPS }} DEVOPS_FRONTEND_BUCKET_MF;
             ${{ inputs.VAULT_KV_DEVOPS }} IMPORT_MAP_DEPLOYER_URL;
@@ -79,11 +80,16 @@ jobs:
           BUCKET_PATH_INDEX=$VERSION.${{ inputs.WEBAPP }}-root-config.$DEVOPS_ENV_DOMAIN/
 
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-            PUBLIC_URL=https://$VERSION.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
-            ASSETS_URL=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
+            if [ "${{ env.DEVOPS_ENV }}" == "stg" ]; then
+              PUBLIC_URL=https://$VERSION.backoffice.${{ env.DEVOPS_ENV_PRIVATE_DOMAIN }}
+              ASSETS_URL=https://cdnmf.${{ env.DEVOPS_ENV_PRIVATE_DOMAIN }}/$BUCKET_PATH
+            else
+              PUBLIC_URL=https://$VERSION.backoffice.${{ env.DEVOPS_ENV_DOMAIN }}
+              ASSETS_URL=https://backoffice.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
+            fi
           else
             PUBLIC_URL=https://$VERSION.customer.${{ env.DEVOPS_ENV_DOMAIN }}
-            ASSETS_URL=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ github.event.repository.name }}/${{ github.event.number }}
+            ASSETS_URL=https://mf.${{ env.DEVOPS_ENV_DOMAIN }}/$BUCKET_PATH
           fi
 
           echo "BUCKET_PATH=$BUCKET_PATH" >> $GITHUB_ENV
@@ -116,7 +122,11 @@ jobs:
         if: success() && env.MULTI_BRANCH == 'false'
         run: |
           if [ "${{ inputs.WEBAPP }}" == "backoffice" ]; then
-          curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+            if [ "${{ env.DEVOPS_ENV }}" == "stg" ]; then
+              curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_PRIVATE_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+            else
+              curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=backoffice-${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
+            fi
           else
           curl -u ${{ env.IMPORT_MAP_USER }}:'${{ env.IMPORT_MAP_PASS }}' -X PATCH ${{ env.IMPORT_MAP_DEPLOYER_URL }}/services\?env=${{ env.DEVOPS_ENV }}\&skip_url_check  -d '{ "service":"@mundi/${{ inputs.PROJECT_NAME }}","url":"https://cdnmf.${{ env.DEVOPS_ENV_DOMAIN }}/${{ env.BUCKET_PATH }}/mundi-${{ inputs.PROJECT_NAME }}.js" }' -H "Accept: application/json" -H "Content-Type: application/json"
           fi
