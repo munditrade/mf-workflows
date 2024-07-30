@@ -51,7 +51,7 @@ jobs:
           set -e  # Exit immediately if a command exits with a non-zero status
 
           vault_kv_path="${{ inputs.VAULT_KV_PATH }}"
-          env_local=$(echo "$vault_kv_path" | cut -d '/' -f 3)
+          env_local=$(echo "$vault_kv_path" | cut -d '/' -f 2)
           cloud_infra_path="cloud-infra-mf/$env_local"
 
           # Trap errors to provide more informative messages
