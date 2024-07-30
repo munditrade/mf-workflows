@@ -47,20 +47,18 @@ jobs:
           VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
         run: |
-          set -e  # Exit immediately if a command exits with a non-zero status
-      
           export ENV_LOCAL=$(echo ${{ inputs.VAULT_KV_PATH }} | cut -d "/" -f 3)
       
           # Fetch secrets from Vault and handle potential errors
-          if ! vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }} | sed 's/: /=/' > env-mf; then
+          vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }} | sed 's/: /=/' > env-mf || {
             echo "Error: Unable to fetch secrets from ${{ inputs.VAULT_KV_PATH }}"
             exit 1
-          fi
+          }
       
-          if ! vault kv get -format yaml -field=data cloud-infra-mf/$ENV_LOCAL | sed 's/: /=/' > env-cloud; then
+          vault kv get -format yaml -field=data cloud-infra-mf/$ENV_LOCAL | sed 's/: /=/' > env-cloud || {
             echo "Error: Unable to fetch secrets from cloud-infra-mf/$ENV_LOCAL"
             exit 1
-          fi
+          }
       
           sort -u -t '=' -k 1,1 env-cloud env-mf > .env
 
