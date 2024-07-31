@@ -58,9 +58,9 @@ jobs:
           trap 'echo "Error fetching secrets from $cloud_infra_path: $@" >&2' ERR
 
           # Fetch secrets and handle potential errors
-          vault kv get -format yaml -field=data "$vault_kv_path" | sed 's/: /=/' > env-local
+          vault kv get -format yaml -field=data "$vault_kv_path" | sed 's/: /=/' > env-mf
           vault kv get -format yaml -field=data "$cloud_infra_path" | sed 's/: /=/' > env-cloud
-          
+
           sort -u -t '=' -k 1,1 env-cloud env-mf > .env
 
       - name: Authenticate to Google Cloud
