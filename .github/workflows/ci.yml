@@ -41,28 +41,16 @@ jobs:
         with:
           vpn_config: ${{ secrets.VPN_CONFIG }}
           vpn_pass: ${{ secrets.VPN_PASS }}
-
       - name: Vault Secrets to env
         env:
           VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
-        shell: bash
         run: |
-          set -e  # Exit immediately if a command exits with a non-zero status
+          export ENV_LOCAL=$(echo ${{ inputs.VAULT_KV_PATH }} | cut -d "/" -f 3)
 
-          vault_kv_path="${{ inputs.VAULT_KV_PATH }}"
-          env_local=$(echo "$vault_kv_path" | cut -d '/' -f 2)
-          cloud_infra_path="cloud-infra-mf/$env_local"
-
-          # Trap errors to provide more informative messages
-          trap 'echo "Error fetching secrets from $cloud_infra_path: $@" >&2' ERR
-
-          # Fetch secrets and handle potential errors
-          vault kv get -format yaml -field=data "$vault_kv_path" | sed 's/: /=/' > env-mf
-          vault kv get -format yaml -field=data "$cloud_infra_path" | sed 's/: /=/' > env-cloud
-
+          vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}| sed 's/: /=/' > env-mf
+          vault kv get -format yaml -field=data cloud-infra-mf/$ENV_LOCAL| sed 's/: /=/' > env-cloud
           sort -u -t '=' -k 1,1 env-cloud env-mf > .env
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v0
         with:
