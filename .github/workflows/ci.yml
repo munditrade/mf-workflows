@@ -46,7 +46,7 @@ jobs:
           VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
         run: |
-          export ENV_LOCAL=$(echo ${{ inputs.VAULT_KV_PATH }} | cut -d "/" -f 3)
+          export ENV_LOCAL=$(echo ${{ inputs.VAULT_KV_PATH }} | sed 's|.*/||')
 
           vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}| sed 's/: /=/' > env-mf
           vault kv get -format yaml -field=data cloud-infra-mf/$ENV_LOCAL| sed 's/: /=/' > env-cloud
