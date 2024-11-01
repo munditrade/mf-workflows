@@ -46,10 +46,20 @@ jobs:
           VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
         run: |
-          export ENV_LOCAL=$(echo ${{ inputs.VAULT_KV_PATH }} | cut -d "/" -f 3)
-
-          vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}| sed 's/: /=/' > env-mf
-          vault kv get -format yaml -field=data cloud-infra-mf/$ENV_LOCAL| sed 's/: /=/' > env-cloud
+          export ENV_LOCAL=$(echo ${{ inputs.VAULT_KV_PATH }} | sed 's|.*/||')
+      
+          vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }} | sed 's/: /=/' > env-mf
+          if [ $? -ne 0 ]; then
+            echo "Failed to fetch secrets from ${{ inputs.VAULT_KV_PATH }}"
+            exit 1
+          fi
+      
+          vault kv get -format yaml -field=data cloud-infra-mf/$ENV_LOCAL | sed 's/: /=/' > env-cloud
+          if [ $? -ne 0 ]; then
+            echo "Failed to fetch secrets from cloud-infra-mf/$ENV_LOCAL"
+            exit 1
+          fi
+      
           sort -u -t '=' -k 1,1 env-cloud env-mf > .env
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v0
