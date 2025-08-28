@@ -35,7 +35,7 @@ on:
 jobs:
   cdn_upload:
     name: Upload artifacts to mundi cdn
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
 
