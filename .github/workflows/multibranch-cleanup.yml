@@ -34,14 +34,14 @@ on:
 
 jobs:
   merge-job:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - run: |
           echo PR #${{ github.event.number }} has been merged
 
   clean-up:
     name: Clean up multibranch environment
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
 

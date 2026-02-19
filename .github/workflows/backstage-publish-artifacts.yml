@@ -26,11 +26,11 @@ on:
 
 jobs:
   next-version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v0
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
       - uses: pnpm/action-setup@v2.2.2
@@ -54,7 +54,7 @@ jobs:
 
   publish:
     name: Publish artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     needs: next-version
     if: needs.next-version.outputs.new-release-published == 'true'
@@ -85,7 +85,7 @@ jobs:
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
         run: "vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}/${{ matrix.env }} | sed 's/: /=/' > .env"
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v0
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
       - uses: pnpm/action-setup@v2.2.2
@@ -102,7 +102,7 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm run build
       - id: 'auth'
-        uses: google-github-actions/auth@v0.4.0
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
       - uses: google-github-actions/setup-gcloud@v0
@@ -116,7 +116,7 @@ jobs:
           gsutil -m -h "Cache-Control:public, must-revalidate, max-age=10" rsync -r dist/ gs://cdnmf-${{ matrix.env }}/${{ github.event.repository.name }}/${{ needs.next-version.outputs.new-release-version }}/
   release:
     name: Release semantic version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: publish
     steps:
       - name: Checkout
@@ -129,7 +129,7 @@ jobs:
           git config --global user.name "mundibot"
           git config --global user.email "tech@mundi.io"
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v0
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
       - uses: pnpm/action-setup@v2.2.2

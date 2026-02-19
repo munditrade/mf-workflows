@@ -23,7 +23,7 @@ on:
 jobs:
   semantic_release:
     name: Create new semantic release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -53,7 +53,7 @@ jobs:
           cat .env >> $GITHUB_ENV
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v0
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.NPM_REGISTRY_CREDENTIALS }}'
 
