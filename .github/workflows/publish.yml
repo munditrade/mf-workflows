@@ -71,7 +71,7 @@ jobs:
       - run: npm ci --omit=dev --ignore-scripts
       - run: npm run build
       - id: 'auth'
-        uses: google-github-actions/auth@v0.4.0
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.ORG_GOOGLE_CREDENTIALS }}
       - uses: google-github-actions/setup-gcloud@v0
