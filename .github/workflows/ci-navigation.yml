@@ -25,7 +25,8 @@ on:
 jobs:
   create-artifacts:
     name: Build project artifacts
-    runs-on: ubuntu-22.04
+    needs: lint-test
+    runs-on: ubuntu-24.04
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -41,13 +42,25 @@ jobs:
         with:
           vpn_config: ${{ secrets.VPN_CONFIG }}
           vpn_pass: ${{ secrets.VPN_PASS }}
+      - name: Verify VPN connectivity
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            vault status && exit 0
+            echo "Retry $i..."
+            sleep 5
+          done
+          echo "VPN connectivity check failed"
+          exit 1
       - name: Vault Secrets to env
         env:
           VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
           VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
         run: |
+          set -eo pipefail
           export ENV_LOCAL=$(echo ${{ inputs.VAULT_KV_PATH }} | cut -d "/" -f 3)
-
           vault kv get -format yaml -field=data ${{ inputs.VAULT_KV_PATH }}| sed 's/: /=/' > env-mf
           vault kv get -format yaml -field=data cloud-infra-mf/$ENV_LOCAL| sed 's/: /=/' > env-cloud
           sort -u -t '=' -k 1,1 env-cloud env-mf > .env
@@ -76,7 +89,7 @@ jobs:
 
   lint-test:
     name: Run linting rules and unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -94,7 +107,11 @@ jobs:
       - name: Login to Artifact Registry
         run: npm run artifactregistry-login
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: |
+          npm config set fetch-retries 3
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm ci --ignore-scripts
 
       - run: npm test -- --passWithNoTests
 
