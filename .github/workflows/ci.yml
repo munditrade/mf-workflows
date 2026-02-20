@@ -25,6 +25,7 @@ on:
 jobs:
   create-artifacts:
     name: Build project artifacts
+    needs: lint-test
     runs-on: ubuntu-22.04
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -75,9 +76,6 @@ jobs:
       - name: Login to Artifact Registry
         run: npm run artifactregistry-login
 
-      - name: Clean cache 
-        run: npm cache clean --force
-      
       - name: Install dependencies
         run: npm ci --no-fund --ignore-scripts --legacy-peer-deps
 
@@ -109,11 +107,12 @@ jobs:
       - name: Login to Artifact Registry
         run: npm run artifactregistry-login
 
-      - name: Clean cache 
-        run: npm cache clean --force
-
       - name: Install dependencies
-        run: npm ci --no-fund --ignore-scripts --legacy-peer-deps
+        run: |
+          npm config set fetch-retries 3
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm ci --no-fund --ignore-scripts --legacy-peer-deps
 
       - run: npm test -- --passWithNoTests
 
