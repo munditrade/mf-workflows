@@ -17,7 +17,7 @@ on:
 jobs:
   validate_workflow_status:
     name: Upload artifacts to mundi cdn
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       status: ${{ steps.check-workflow.outputs.status }}
       conclusion: ${{ steps.check-workflow.outputs.conclusion }}

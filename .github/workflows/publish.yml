@@ -22,7 +22,7 @@ on:
 
 jobs:
   next-version:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -39,7 +39,7 @@ jobs:
 
   publish:
     name: Publish artifacts
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: next-version
     if: needs.next-version.outputs.new-release-published == 'true'
     strategy:
@@ -86,7 +86,7 @@ jobs:
 
   release:
     name: Release semantic version
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: publish
     steps:
       - name: Checkout
